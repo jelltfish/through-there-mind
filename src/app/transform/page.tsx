@@ -37,19 +37,57 @@ export default function TransformPage() {
     
     setIsTransforming(true);
     
-    // 模擬 API 調用延遲
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // 這裡將來會接入真實的轉換邏輯
-    const mockTransformations = {
-      depression: `「他們一定是在嘲笑我...我做什麼都不對...沒有人真的關心我...」`,
-      gad: `「這會不會發生什麼可怕的事？一定會出事的...我控制不了...」`,
-      schizophrenia: `「他們在說我的壞話...這是個陰謀...有人在監視我...」`,
-      bipolar: `「他們根本不了解我！為什麼要這樣對我？我受夠了！」`
-    };
-    
-    setTransformedText(mockTransformations[selectedDisorder as keyof typeof mockTransformations]);
-    setIsTransforming(false);
+    try {
+      // 檢查是否有 API key 環境變數
+      const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+      
+      if (apiKey && apiKey !== 'your_openai_api_key_here') {
+        // 真實 API 調用 (當有 API key 時)
+        const response = await fetch('/api/transform', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: inputText,
+            disorder: selectedDisorder
+          }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setTransformedText(data.transformedText);
+        } else {
+          throw new Error('API 調用失敗');
+        }
+      } else {
+        // 模擬 API 調用延遲 (開發環境)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // 模擬轉換邏輯
+        const mockTransformations = {
+          depression: `「他們一定是在嘲笑我...我做什麼都不對...沒有人真的關心我...」`,
+          gad: `「這會不會發生什麼可怕的事？一定會出事的...我控制不了...」`,
+          schizophrenia: `「他們在說我的壞話...這是個陰謀...有人在監視我...」`,
+          bipolar: `「他們根本不了解我！為什麼要這樣對我？我受夠了！」`
+        };
+        
+        setTransformedText(mockTransformations[selectedDisorder as keyof typeof mockTransformations]);
+      }
+    } catch (error) {
+      console.error('轉換過程中發生錯誤:', error);
+      // 發生錯誤時使用備用的模擬轉換
+      const mockTransformations = {
+        depression: `「他們一定是在嘲笑我...我做什麼都不對...沒有人真的關心我...」`,
+        gad: `「這會不會發生什麼可怕的事？一定會出事的...我控制不了...」`,
+        schizophrenia: `「他們在說我的壞話...這是個陰謀...有人在監視我...」`,
+        bipolar: `「他們根本不了解我！為什麼要這樣對我？我受夠了！」`
+      };
+      
+      setTransformedText(mockTransformations[selectedDisorder as keyof typeof mockTransformations]);
+    } finally {
+      setIsTransforming(false);
+    }
   };
 
   const handleReset = () => {
@@ -167,7 +205,7 @@ export default function TransformPage() {
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   placeholder="輸入一句日常對話..."
-                  className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none h-40 text-lg placeholder-gray-400"
+                  className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none h-40 text-lg text-black placeholder-gray-400"
                   maxLength={200}
                 />
                 <div className="mt-3 text-sm text-gray-500">

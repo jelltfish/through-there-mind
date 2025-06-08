@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Head from 'next/head';
 import Navbar from '@/components/Navbar';
 
 export default function TransformPage() {
@@ -21,6 +22,8 @@ export default function TransformPage() {
       setShowModal(true);
     }
   }, []);
+
+
 
   const handleAgree = () => {
     if (isAgreed) {
@@ -53,39 +56,79 @@ export default function TransformPage() {
     }
   ];
 
+  // 使用 Dialogflow AI Agent 進行文本轉換
+  const callDialogflowAgent = async (text: string, disorder: string) => {
+    try {
+      const response = await fetch('/api/dialogflow-transform', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+          disorder: disorder,
+          projectId: 'devjem',
+          location: 'us-central1',
+          agentId: '696971cd-ee1f-45c1-a07b-683b0ef743d9'
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.transformedText;
+      } else {
+        throw new Error('Dialogflow API 調用失敗');
+      }
+    } catch (error) {
+      console.error('Dialogflow 轉換錯誤:', error);
+      throw error;
+    }
+  };
+
   const handleTransform = async () => {
     if (!inputText.trim() || !hasConsented) return;
     
     setIsTransforming(true);
     
     try {
-      // 檢查是否有 API key 環境變數
+      // 優先使用 Dialogflow AI Agent
+      const transformedResult = await callDialogflowAgent(inputText, selectedDisorder);
+      setTransformedText(transformedResult);
+    } catch (error) {
+      console.error('AI 轉換失敗，使用備用方案:', error);
+      
+      // 備用方案：檢查是否有 OpenAI API key
       const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
       
-      if (apiKey && apiKey !== 'your_openai_api_key_here') {
-        // 真實 API 調用 (當有 API key 時)
-        const response = await fetch('/api/transform', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: inputText,
-            disorder: selectedDisorder
-          }),
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setTransformedText(data.transformedText);
+      try {
+        if (apiKey && apiKey !== 'your_openai_api_key_here') {
+          // 使用 OpenAI API 作為備用
+          const response = await fetch('/api/transform', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text: inputText,
+              disorder: selectedDisorder
+            }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setTransformedText(data.transformedText);
+          } else {
+            throw new Error('備用 API 調用失敗');
+          }
         } else {
-          throw new Error('API 調用失敗');
+          throw new Error('無可用的 API');
         }
-      } else {
-        // 模擬 API 調用延遲 (開發環境)
+      } catch (fallbackError) {
+        console.error('備用方案也失敗，使用模擬數據:', fallbackError);
+        
+        // 最終備用：模擬轉換
         await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // 模擬轉換邏輯
         const mockTransformations = {
           depression: `「他們一定是在嘲笑我...我做什麼都不對...沒有人真的關心我...」`,
           gad: `「這會不會發生什麼可怕的事？一定會出事的...我控制不了...」`,
@@ -95,17 +138,6 @@ export default function TransformPage() {
         
         setTransformedText(mockTransformations[selectedDisorder as keyof typeof mockTransformations]);
       }
-    } catch (error) {
-      console.error('轉換過程中發生錯誤:', error);
-      // 發生錯誤時使用備用的模擬轉換
-      const mockTransformations = {
-        depression: `「他們一定是在嘲笑我...我做什麼都不對...沒有人真的關心我...」`,
-        gad: `「這會不會發生什麼可怕的事？一定會出事的...我控制不了...」`,
-        schizophrenia: `「他們在說我的壞話...這是個陰謀...有人在監視我...」`,
-        bipolar: `「他們根本不了解我！為什麼要這樣對我？我受夠了！」`
-      };
-      
-      setTransformedText(mockTransformations[selectedDisorder as keyof typeof mockTransformations]);
     } finally {
       setIsTransforming(false);
     }
@@ -348,7 +380,7 @@ export default function TransformPage() {
                       <div className="space-y-4">
                         <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-400">
                           <p className="text-purple-900 font-medium text-lg leading-relaxed">
-                            {transformedText.split('→')[1]?.trim().replace(/「|」/g, '') || transformedText}
+                            {transformedText.split('→')[1]?.trim().replace(/「|」/g, '') || transformedText.replace(/「|」/g, '')}
                           </p>
                         </div>
                         <div className="text-xs text-gray-500 flex items-start space-x-2">
@@ -356,7 +388,7 @@ export default function TransformPage() {
                             <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                           </svg>
                           <div>
-                            <p>這是模擬的內心聲音，實際情況可能更複雜</p>
+                            <p>這是 AI 生成的模擬內心聲音，實際情況可能更複雜</p>
                           </div>
                         </div>
                       </div>
@@ -412,6 +444,8 @@ export default function TransformPage() {
           </div>
         </main>
       )}
+
+
 
       {/* 頁腳 */}
       <footer className="bg-white/80 backdrop-blur-sm border-t border-gray-200 py-8">

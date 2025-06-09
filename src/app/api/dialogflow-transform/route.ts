@@ -150,9 +150,9 @@ async function getGoogleAccessToken(): Promise<string> {
 }
 
 // 創建 JWT
-async function createJWT(header: any, payload: any, privateKey: string): Promise<string> {
+async function createJWT(header: Record<string, string>, payload: Record<string, string | number>, privateKey: string): Promise<string> {
   // Base64URL 編碼
-  const base64UrlEncode = (obj: any) => {
+  const base64UrlEncode = (obj: Record<string, string | number>) => {
     return Buffer.from(JSON.stringify(obj))
       .toString('base64')
       .replace(/\+/g, '-')
@@ -275,7 +275,6 @@ function cleanResponseText(text: string): string {
   
   // 逐一應用清理規則
   patterns.forEach((pattern, index) => {
-    const before = cleanedText;
     if (index === patterns.length - 2) {
       // 合併多個換行為單個換行
       cleanedText = cleanedText.replace(pattern, '\n');
